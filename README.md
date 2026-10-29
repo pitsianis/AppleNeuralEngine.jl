@@ -22,6 +22,19 @@ Julia through [ObjectiveC.jl](https://github.com/JuliaInterop/ObjectiveC.jl), th
 same way [Metal.jl](https://github.com/JuliaGPU/Metal.jl) drives the GPU. There is
 no native code to build and no Core ML model to export.
 
+## Installation
+
+Not registered yet; install from GitHub:
+
+```julia
+using Pkg
+Pkg.add(url="https://github.com/pitsianis/AppleNeuralEngine.jl")
+```
+
+Or clone the repository to run the examples, the benchmark and the op probe.
+Needs an Apple Silicon Mac and Julia 1.10 or later; so far it has been tested on
+a Neural Engine only with Julia 1.13 on an M2 Max.
+
 ## Three levels
 
 - **Tracing:** `compile(f, inputs...)` records an ordinary Julia function on

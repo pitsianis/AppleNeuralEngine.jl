@@ -27,13 +27,19 @@ levels of control:
 
 ## Installation
 
+The package is not registered yet, so install it from GitHub:
+
 ```julia
 using Pkg
-Pkg.add("AppleNeuralEngine")
+Pkg.add(url="https://github.com/pitsianis/AppleNeuralEngine.jl")
 ```
 
+To run the examples, the benchmark or the op probe, clone the repository instead
+(see the [README](https://github.com/pitsianis/AppleNeuralEngine.jl#readme)).
+
 Requirements: an Apple Silicon Mac and Julia 1.10 or later. Nothing else needs to
-be installed.
+be installed. So far it has been tested on a Neural Engine only with Julia 1.13
+on an M2 Max.
 
 !!! warning "Private API"
     The ANE has no public programming interface; Apple exposes it only through
