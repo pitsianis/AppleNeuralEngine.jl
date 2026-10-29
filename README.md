@@ -1,5 +1,8 @@
 # AppleNeuralEngine.jl
 
+[![CI](https://github.com/pitsianis/AppleNeuralEngine.jl/actions/workflows/CI.yml/badge.svg)](https://github.com/pitsianis/AppleNeuralEngine.jl/actions/workflows/CI.yml)
+[![Docs](https://img.shields.io/badge/docs-dev-blue.svg)](https://pitsianis.github.io/AppleNeuralEngine.jl/dev/)
+
 Run Julia code on the **Apple Neural Engine** (ANE), the fp16 neural-network
 accelerator in every Apple Silicon Mac.
 
@@ -79,6 +82,8 @@ compute, so the ANE pays off for matrix-matrix work, not single small vectors. S
 [docs/src/hardware.md](docs/src/hardware.md).
 
 ## Documentation
+
+Online at **https://pitsianis.github.io/AppleNeuralEngine.jl/dev/**. To build it locally:
 
 ```sh
 julia --project=docs -e 'using Pkg; Pkg.instantiate()'
