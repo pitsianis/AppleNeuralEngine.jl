@@ -26,3 +26,4 @@ First release.
 - `functional()` and `device_info()`.
 - `tools/probe_ops.jl`, which measures op support on the current machine.
 - Examples: `traced_ffn.jl`, `transformer_ffn.jl`, `minimal.jl`.
+- `benchmark/run.jl`: ANE vs Accelerate vs OpenBLAS, printed as a Markdown table.

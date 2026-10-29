@@ -47,6 +47,23 @@ ANE (incl. copies)     0.255 ms   4734.8 GFLOP/s
 CPU Float32            3.832 ms    315.2 GFLOP/s
 ```
 
+## Benchmark
+
+```sh
+julia --project=benchmark -e 'using Pkg; Pkg.instantiate()'
+julia --project=benchmark benchmark/run.jl
+```
+
+It times the FFN block and a few matrix products on the ANE, with Accelerate and
+with OpenBLAS, and prints a Markdown table to share. On an M2 Max:
+
+| workload | ANE fp16 ms | GFLOP/s | Accelerate fp32 ms | GFLOP/s | OpenBLAS fp32 ms | GFLOP/s |
+|---|--:|--:|--:|--:|--:|--:|
+| FFN block D=512 H=1536 T=256 | 0.255 | 4730 | 4.519 | 267 | 5.718 | 211 |
+| x*W 256×1024 · 1024×1024 | 0.143 | 3750 | 0.850 | 632 | 1.564 | 343 |
+| x*W 1024×1024 · 1024×1024 | 0.378 | 5677 | 3.643 | 590 | 6.142 | 350 |
+| x*W 2048×2048 · 2048×2048 | 1.648 | 10422 | 29.314 | 586 | 47.979 | 358 |
+
 ## What works
 
 `tools/probe_ops.jl` compiles and checks every MIL op on the current machine; the

@@ -26,7 +26,8 @@ has settled.
    `julia --project=. -e 'using Pkg; Pkg.test()'`.
 2. Examples run: `julia --project=. examples/minimal.jl`,
    `julia --project=. examples/transformer_ffn.jl`.
-3. Optionally refresh the op table: `julia --project=. tools/probe_ops.jl`.
+3. Optionally refresh the op table (`julia --project=. tools/probe_ops.jl`) and the
+   README benchmark (`julia --project=benchmark benchmark/run.jl`).
 4. Docs build: `julia --project=docs docs/make.jl`.
 5. Set `version` in `Project.toml` and move the `[Unreleased]` notes in
    `CHANGELOG.md` under the new version with today's date.
