@@ -1,0 +1,20 @@
+name = "AppleNeuralEngine"
+uuid = "b562e621-3829-4fd1-beb1-f0a496db6419"
+version = "0.1.0"
+authors = ["Nikos Pitsianis <pitsiani@ece.auth.gr>"]
+
+[deps]
+Libdl = "8f399da3-3557-5675-b5ff-fb832c97cbdb"
+ObjectiveC = "e86c9b32-1129-44ac-8ea0-90d5bb39ded9"
+
+[compat]
+Libdl = "1"
+ObjectiveC = "6.0.1"
+julia = "1.10"
+
+[extras]
+LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[targets]
+test = ["LinearAlgebra", "Test"]

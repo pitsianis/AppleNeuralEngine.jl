@@ -1,0 +1,30 @@
+name: CI
+on:
+  push:
+    branches: [main]
+    tags: ['*']
+  pull_request:
+  workflow_dispatch:
+concurrency:
+  # Cancel superseded runs of the same branch or pull request.
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  test:
+    name: Julia ${{ matrix.version }}
+    # GitHub's Apple Silicon runners are virtual machines without a usable
+    # Neural Engine: the tests that need one skip themselves (`functional()`
+    # is false), everything else runs.
+    runs-on: macos-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        version: ['1.10', '1']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: julia-actions/setup-julia@v2
+        with:
+          version: ${{ matrix.version }}
+      - uses: julia-actions/cache@v2
+      - uses: julia-actions/julia-buildpkg@v1
+      - uses: julia-actions/julia-runtest@v1
