@@ -8,9 +8,11 @@ manager: before 1.0, a minor bump (0.1 → 0.2) may break things, a patch bump
 
 ## [Unreleased]
 
-## [0.1.0] - unreleased
+## [0.1.0] - 2026-10-29
 
-First release.
+First release, not yet registered. Tested on an M2 Max with macOS 27.0.1:
+the full test suite with Julia 1.13.3, and the tests that do not need a
+Neural Engine (CI) with Julia 1.10.12 and 1.13.3.
 
 ### Added
 - Direct access to the Apple Neural Engine through the private
@@ -27,3 +29,6 @@ First release.
 - `tools/probe_ops.jl`, which measures op support on the current machine.
 - Examples: `traced_ffn.jl`, `transformer_ffn.jl`, `minimal.jl`.
 - `benchmark/run.jl`: ANE vs Accelerate vs OpenBLAS, printed as a Markdown table.
+
+[Unreleased]: https://github.com/pitsianis/AppleNeuralEngine.jl/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/pitsianis/AppleNeuralEngine.jl/releases/tag/v0.1.0
