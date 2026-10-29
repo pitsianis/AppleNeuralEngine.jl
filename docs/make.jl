@@ -3,8 +3,7 @@ using AppleNeuralEngine
 
 makedocs(;
     sitename="AppleNeuralEngine.jl",
-    # Source links need a git remote; until the repository exists, build without them.
-    remotes=isdir(joinpath(@__DIR__, "..", ".git")) ? Documenter.Remotes.GitHub("pitsianis", "AppleNeuralEngine.jl") => nothing : nothing,
+    repo=Documenter.Remotes.GitHub("pitsianis", "AppleNeuralEngine.jl"),
     modules=[AppleNeuralEngine, AppleNeuralEngine.MIL],
     format=Documenter.HTML(; prettyurls=get(ENV, "CI", "false") == "true"),
     pages=[
