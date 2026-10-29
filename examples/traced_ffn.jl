@@ -6,8 +6,8 @@
 using AppleNeuralEngine
 
 D, H, T = 512, 1536, 256          # model dim, hidden dim, tokens
-W1, W3 = randn(Float32, H, D) ./ sqrt(D), randn(Float32, H, D) ./ sqrt(D)
-W2 = randn(Float32, D, H) ./ sqrt(H)
+W1, W3 = randn(Float32, H, D) ./ sqrt(Float32(D)), randn(Float32, H, D) ./ sqrt(Float32(D))
+W2 = randn(Float32, D, H) ./ sqrt(Float32(H))
 g = 1 .+ 0.1f0 .* randn(Float32, D)
 
 silu(z) = z / (1 + exp(-z))

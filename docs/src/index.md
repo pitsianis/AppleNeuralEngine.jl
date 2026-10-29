@@ -43,9 +43,10 @@ be installed.
 
 ## What the Neural Engine is good at
 
-- **fp16 matrix-matrix work.** A transformer feed-forward block (512 → 1536 → 512,
-  256 tokens) runs in about 0.25 ms on an M2 Max, roughly 5 TFLOP/s. That is about
-  15× faster than Float32 BLAS on the CPU (`examples/transformer_ffn.jl`).
+- **fp16 matrix-matrix work.** On an M2 Max a transformer feed-forward block
+  (512 → 1536 → 512, 256 tokens) runs in about 0.26 ms, 10× faster than Float32
+  with Accelerate on the CPU. A 2048³ matrix product reaches about 10 TFLOP/s,
+  4× Accelerate (`benchmark/run.jl`).
 - **Fixed graphs with constant weights.** Weights are compiled into the program.
 - **Activations, normalizations, reductions, convolutions, attention.** See
   [Op support](@ref).

@@ -42,13 +42,8 @@ julia --project=. examples/minimal.jl          # hand-written MIL, raw runtime
 ```
 
 `transformer_ffn.jl` runs a pre-norm SwiGLU block (512 → 1536 → 512, 256 tokens)
-and checks it against plain Julia. On an M2 Max:
-
-```
-relative error vs Float32 CPU: 0.00422 (fp16 compute)
-ANE (incl. copies)     0.255 ms   4734.8 GFLOP/s
-CPU Float32            3.832 ms    315.2 GFLOP/s
-```
+and checks it against plain Julia. The benchmark below compares it, and plain
+matrix products, with Accelerate and OpenBLAS.
 
 ## Benchmark
 
@@ -62,10 +57,13 @@ with OpenBLAS, and prints a Markdown table to share. On an M2 Max:
 
 | workload | ANE fp16 ms | GFLOP/s | Accelerate fp32 ms | GFLOP/s | OpenBLAS fp32 ms | GFLOP/s |
 |---|--:|--:|--:|--:|--:|--:|
-| FFN block D=512 H=1536 T=256 | 0.255 | 4730 | 4.519 | 267 | 5.718 | 211 |
-| x*W 256×1024 · 1024×1024 | 0.143 | 3750 | 0.850 | 632 | 1.564 | 343 |
-| x*W 1024×1024 · 1024×1024 | 0.378 | 5677 | 3.643 | 590 | 6.142 | 350 |
-| x*W 2048×2048 · 2048×2048 | 1.648 | 10422 | 29.314 | 586 | 47.979 | 358 |
+| FFN block D=512 H=1536 T=256 | 0.261 | 4629 | 2.646 | 457 | 3.866 | 312 |
+| x*W 256×1024 · 1024×1024 | 0.148 | 3628 | 0.210 | 2553 | 0.728 | 737 |
+| x*W 1024×1024 · 1024×1024 | 0.366 | 5859 | 0.791 | 2715 | 2.839 | 756 |
+| x*W 2048×2048 · 2048×2048 | 1.774 | 9682 | 7.223 | 2378 | 24.062 | 714 |
+
+The ANE computes in fp16 and the CPU in fp32, so this compares each at its native
+precision rather than like for like.
 
 ## What works
 

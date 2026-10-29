@@ -13,8 +13,8 @@ besttime(f, x; n=100) = (f(x); minimum(@elapsed(f(x)) for _ in 1:n))
 silu(z) = z / (1 + exp(-z))
 
 function ffn_workload(D=512, H=1536, T=256)
-    W1, W3 = randn(Float32, H, D) ./ sqrt(D), randn(Float32, H, D) ./ sqrt(D)
-    W2 = randn(Float32, D, H) ./ sqrt(H)
+    W1, W3 = randn(Float32, H, D) ./ sqrt(Float32(D)), randn(Float32, H, D) ./ sqrt(Float32(D))
+    W2 = randn(Float32, D, H) ./ sqrt(Float32(H))
     g = 1 .+ 0.1f0 .* randn(Float32, D)
     f(x) = (n = x ./ sqrt.(sum(abs2, x; dims=2) ./ size(x, 2) .+ 1f-5) .* g';
             x .+ (silu.(n * W1') .* (n * W3')) * W2')
@@ -22,7 +22,7 @@ function ffn_workload(D=512, H=1536, T=256)
 end
 
 function gemm_workload(T, D, H)
-    W = randn(Float32, D, H) ./ sqrt(D)
+    W = randn(Float32, D, H) ./ sqrt(Float32(D))
     return "x*W $(T)×$(D) · $(D)×$(H)", x -> x * W, (T, D), 2 * T * D * H
 end
 
@@ -35,6 +35,8 @@ functional() || error("No usable Neural Engine on this machine (device_info: $(d
 results = map(workloads) do (name, f, dims, flops)
     x16 = randn(Float16, dims...)
     x32 = Float32.(x16)
+    # The CPU baseline must really be Float32: a Float64 weight would promote it.
+    eltype(f(x32)) == Float32 || error("$name does not compute in Float32 on the CPU")
     program = compile(f, x16)
     y, ref = Float32.(program(x16)), f(x32)
     err = sqrt(sum(abs2, y .- ref) / sum(abs2, ref))
