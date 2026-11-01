@@ -125,31 +125,60 @@ end
 
 """
     evaluate!(program, inputs...) -> Vector{Array}
+    evaluate!(outputs, program, inputs...) -> outputs
 
-Copy `inputs` into the program's input buffers, run it on the Neural Engine
-and return freshly allocated output arrays.
+Copy `inputs` into the program's input buffers, run it on the Neural Engine and
+copy the results out. The first form returns freshly allocated output arrays.
+The second writes them into preallocated `outputs`, a tuple or vector with one
+dense `Array` per program output (or that `Array` alone for a one-output program),
+and allocates nothing: use it in loops. Any earlier result has the right arrays:
+
+```julia
+y = program(x)              # allocates
+evaluate!(y, program, x)    # reuses y
+```
 """
 function evaluate!(program::ANEProgram, inputs...)
-    isopen(program) || error("ANEProgram is closed")
-    length(inputs) == length(program.input_shapes) ||
-        throw(DimensionMismatch("expected $(length(program.input_shapes)) inputs, got $(length(inputs))"))
+    _check_open(program)
+    outputs = [Array{T}(undef, Tuple(shape)) for (shape, T) in zip(program.output_shapes, program.output_types)]
+    return evaluate!(outputs, program, inputs...)
+end
 
-    for (i, (input, shape, T)) in enumerate(zip(inputs, program.input_shapes, program.input_types))
-        input isa Array{T} || throw(ArgumentError("input $i must be a dense Array{$T}"))
-        size(input) == Tuple(shape) || throw(DimensionMismatch("input $i has size $(size(input)); expected $(Tuple(shape))"))
-    end
+function evaluate!(outputs::Union{Tuple,AbstractVector{<:Array}}, program::ANEProgram, inputs::Vararg{Any,N}) where {N}
+    _check_open(program)
+    _check_arrays(inputs, program.input_shapes, program.input_types, "input")
+    _check_arrays(outputs, program.output_shapes, program.output_types, "output")
     for (input, surface, layout) in zip(inputs, program.input_surfaces, program.input_layouts)
         GC.@preserve input _copy_surface!(surface, pointer(input), layout..., true)
     end
-
     _evaluate_native(program.model, program.request)
-
-    return map(program.output_shapes, program.output_types, program.output_surfaces, program.output_layouts) do shape, T, surface, layout
-        output = Array{T}(undef, Tuple(shape))
+    for (output, surface, layout) in zip(outputs, program.output_surfaces, program.output_layouts)
         GC.@preserve output _copy_surface!(surface, pointer(output), layout..., false)
-        output
+    end
+    return outputs
+end
+
+function evaluate!(output::Array{<:Union{Float16,Float32}}, program::ANEProgram, inputs::Vararg{Any,N}) where {N}
+    _check_open(program)
+    length(program.output_shapes) == 1 ||
+        throw(ArgumentError("the program has $(length(program.output_shapes)) outputs; pass a tuple of arrays"))
+    evaluate!((output,), program, inputs...)
+    return output
+end
+
+_check_open(program) = isopen(program) || error("ANEProgram is closed")
+
+function _check_arrays(arrays, shapes, types, label)
+    length(arrays) == length(shapes) ||
+        throw(DimensionMismatch("expected $(length(shapes)) $(label)s, got $(length(arrays))"))
+    for (i, (a, shape, T)) in enumerate(zip(arrays, shapes, types))
+        a isa Array && eltype(a) === T || throw(ArgumentError("$label $i must be a dense Array{$T}"))
+        _samesize(a, shape) || throw(DimensionMismatch("$label $i has size $(size(a)); expected $(Tuple(shape))"))
     end
 end
+
+# size(a) == Tuple(shape) without building a tuple of unknown length (which allocates)
+_samesize(a, shape) = ndims(a) == length(shape) && all(d -> size(a, d) == shape[d], 1:ndims(a))
 
 """
     compile(g::MIL.Graph) -> ANEProgram

@@ -40,6 +40,14 @@ Observations made while building and testing this package on an M2 Max
 - Each evaluation costs about 0.1–0.2 ms on top of the compute, for the call and
   the buffer copies. Small programs are therefore latency-bound. Batch work into
   larger matrix-matrix products.
+- Allocating a fresh output array per call makes timings erratic for large outputs
+  (page faults on new memory): for a 2048×2048 product the median call took about
+  twice the minimum. Reuse outputs with `evaluate!(outputs, program, inputs...)`,
+  which allocates nothing.
+- Under sustained load the ANE slows down: after about half a second of back-to-back
+  calls, a 2048×2048 product settled about 50% slower than in the first burst
+  (median 1.75 ms, then about 2.6 ms, on an M2 Max). Short bursts and long runs
+  therefore give different numbers; `benchmark/run.jl` measures bursts by default.
 - Calling the runtime through ObjectiveC.jl instead of a compiled Objective-C
   bridge adds about 0.1 µs per call, which is not measurable against the ANE
   itself.

@@ -14,6 +14,11 @@ manager: before 1.0, a minor bump (0.1 → 0.2) may break things, a patch bump
   `MIL.topk`. The ANE rejects int32 tensors; with uint16 output, argmax and argmin
   run along channels and height (the result is fp16 bits labelled uint16, decoded with
   `reinterpret(Float16, UInt16(y))`, exact up to index 128). `topk` still does not compile.
+- `evaluate!(outputs, program, inputs...)` writes into preallocated output arrays
+  and allocates nothing per call. Without it, allocating large outputs made call
+  times erratic (median about twice the minimum for a 2048×2048 product).
+- `benchmark/run.jl` reuses the output array, reports minimum and median times, and
+  can time with BenchmarkTools (`BENCH_METHOD=benchmarktools`) to measure sustained load.
 - Probe cases for int32/int16/uint16 casts, uint16 argmax/argmin by axis and size, and
   uint16 `topk`; the op support page records the int32 rule and the decoding.
 

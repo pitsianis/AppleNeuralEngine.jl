@@ -3,11 +3,31 @@
 #
 #     julia --project=benchmark -e 'using Pkg; Pkg.instantiate()'
 #     julia --project=benchmark benchmark/run.jl
+#
+# BENCH_METHOD selects the timing method:
+#   loop (default)    100 back-to-back calls after a warm-up; about 12 s in all.
+#                     Measures short bursts.
+#   benchmarktools    BenchmarkTools, BENCH_SECONDS seconds (default 2) per
+#                     measurement; about a minute in all. Mostly measures sustained
+#                     load, under which the ANE runs about 50% slower.
 
-using AppleNeuralEngine, LinearAlgebra, Printf
+using AppleNeuralEngine, BenchmarkTools, LinearAlgebra, Printf, Statistics
 
-# Minimum over repetitions after a warm-up call: the steady-state cost per call.
-besttime(f, x; n=100) = (f(x); minimum(@elapsed(f(x)) for _ in 1:n))
+const METHOD = get(ENV, "BENCH_METHOD", "loop")
+METHOD in ("benchmarktools", "loop") || error("BENCH_METHOD must be benchmarktools or loop, got $METHOD")
+const SECONDS = parse(Float64, get(ENV, "BENCH_SECONDS", "2"))
+
+# Minimum and median time per call in seconds. The minimum is the steady-state cost;
+# the median shows how much it varies.
+function timing(f, x)
+    f(x)                                    # compile and warm up
+    if METHOD == "loop"
+        ts = [@elapsed(f(x)) for _ in 1:100]
+        return (; min=minimum(ts), med=median(ts))
+    end
+    trial = @benchmark $f($x) seconds = SECONDS samples = 100_000
+    return (; min=minimum(trial).time / 1e9, med=median(trial).time / 1e9)
+end
 
 # --- workloads: each is the same Julia function on the CPU and the ANE ----------
 silu(z) = z / (1 + exp(-z))
@@ -40,17 +60,18 @@ results = map(workloads) do (name, f, dims, flops)
     program = compile(f, x16)
     y, ref = Float32.(program(x16)), f(x32)
     err = sqrt(sum(abs2, y .- ref) / sum(abs2, ref))
-    t_ane = besttime(program, x16)
+    out = program(x16)                      # preallocated output, reused by every call
+    t_ane = timing(x -> evaluate!(out, program, x), x16)
     close!(program)
-    (; name, flops, err, t_ane, t_cpu=besttime(f, x32))
+    (; name, flops, err, t_ane, t_cpu=timing(f, x32))
 end
 
 openblas = [r.t_cpu for r in results]
 using AppleAccelerate           # switches BLAS to Accelerate from here on
-accelerate = [besttime(w[2], randn(Float32, w[3]...)) for w in workloads]
+accelerate = [timing(w[2], randn(Float32, w[3]...)) for w in workloads]
 
 gflops(flops, t) = @sprintf("%.0f", flops / t / 1e9)
-ms(t) = @sprintf("%.3f", 1e3t)
+ms(t) = @sprintf("%.3f / %.3f", 1e3t.min, 1e3t.med)
 info = device_info()
 macos = strip(read(`sw_vers -productVersion`, String))
 
@@ -59,7 +80,9 @@ println("\n**", Sys.cpu_info()[1].model, "**, ANE: ", info.num_cores, " cores ("
 println("| workload | ANE fp16 ms | GFLOP/s | Accelerate fp32 ms | GFLOP/s | OpenBLAS fp32 ms | GFLOP/s | rel. error |")
 println("|---|--:|--:|--:|--:|--:|--:|--:|")
 for (r, ta, to) in zip(results, accelerate, openblas)
-    println("| ", r.name, " | ", ms(r.t_ane), " | ", gflops(r.flops, r.t_ane), " | ", ms(ta), " | ", gflops(r.flops, ta),
-            " | ", ms(to), " | ", gflops(r.flops, to), " | ", @sprintf("%.1e", r.err), " |")
+    println("| ", r.name, " | ", ms(r.t_ane), " | ", gflops(r.flops, r.t_ane.min), " | ", ms(ta), " | ", gflops(r.flops, ta.min),
+            " | ", ms(to), " | ", gflops(r.flops, to.min), " | ", @sprintf("%.1e", r.err), " |")
 end
-println("\nANE times include copying inputs and outputs. CPU times are Float32.")
+println("\nTimes are minimum / median ", METHOD == "loop" ? "of 100 calls" : "over $(SECONDS) s of calls (BenchmarkTools)",
+        "; GFLOP/s use the minimum.")
+println("ANE times include copying inputs and outputs (into a preallocated output). CPU times are Float32.")

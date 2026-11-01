@@ -23,7 +23,12 @@ Each input and output is a dense Julia array whose memory matches the MIL tensor
 For the usual `[1, C, 1, S]` activation layout that is an `(S, C)` matrix. The
 first Julia dimension is the innermost MIL dimension. `evaluate!` copies inputs
 into IOSurfaces shared with the Neural Engine, runs the program, and copies the
-outputs back.
+outputs back. In a loop, pass preallocated outputs so nothing is allocated per call:
+
+```julia
+y = evaluate!(program, x)    # allocates the output arrays
+evaluate!(y, program, x)     # reuses them
+```
 
 ## Weights
 

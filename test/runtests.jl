@@ -216,6 +216,23 @@ if ANE_AVAILABLE
         @test_throws ArgumentError evaluate!(program, x, Float64.(x))
         @test_throws ArgumentError evaluate!(program, x, view(randn(Float32, S + 1, C), 1:S, :))
 
+        # preallocated outputs
+        y = randn(Float32, S, C)
+        z = evaluate!(program, x, y)[1]
+        out = fill(NaN32, S, C)
+        @test evaluate!(out, program, x, y) === out && out == z
+        outs = [fill(NaN32, S, C)]
+        @test evaluate!(outs, program, x, y) === outs && outs[1] == z
+        outt = (fill(NaN32, S, C),)
+        @test evaluate!(outt, program, x, y) === outt && outt[1] == z
+        allocs(out, program, x, y) = (evaluate!(out, program, x, y); @allocated evaluate!(out, program, x, y))
+        @test allocs(out, program, x, y) == 0
+        @test allocs(outt, program, x, y) == 0
+        @test_throws DimensionMismatch evaluate!((out, out), program, x, y)
+        @test_throws DimensionMismatch evaluate!(randn(Float32, C, S), program, x, y)
+        @test_throws ArgumentError evaluate!(Float16.(out), program, x, y)
+        @test_throws ArgumentError evaluate!([Float16.(out)], program, x, y)
+
         dir = program.model_dir
         @test isdir(dir)
         @test !occursin("closed", sprint(show, program))
