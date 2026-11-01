@@ -20,6 +20,10 @@ from_buffer(B, shape) = permutedims(Float32.(reshape(B, Base.reverse(shape)...))
 data(kind, shape) = kind === :pos ? rand(Float32, shape...) .+ 0.5f0 :
                     kind === :unit ? 1.8f0 .* rand(Float32, shape...) .- 0.9f0 :
                     kind === :small ? 0.5f0 .* randn(Float32, shape...) :
+                    kind === :int ? Float32.(rand(-100:100, shape...)) :
+                    kind === :uint ? Float32.(rand(0:200, shape...)) :
+                    # distinct values along dimension 2 (channels), so arg-reductions have no ties
+                    kind === :perm ? Float32.(mapslices(_ -> randperm(shape[2]) ./ shape[2] .* 1000, zeros(Float32, shape...); dims=2)) :
                     randn(Float32, shape...)
 
 const X = (1, 16, 8, 32)   # default input: [N, C, H, W]
@@ -30,8 +34,16 @@ struct Case
     inputs::Vector{Tuple{Symbol,NTuple}}     # (data kind, MIL shape)
     build::Function                           # (g, vars...) -> Var or tuple of Vars
     ref::Union{Nothing,Function}              # (arrays...) -> array or tuple of arrays
+    decode::Function                          # applied to each output before comparing
+    exact::Bool                               # integer results: count mismatches, no tolerance
 end
-Case(op, cat, build, ref=nothing; inputs=[(:normal, X)]) = Case(op, cat, inputs, build, ref)
+Case(op, cat, build, ref=nothing; inputs=[(:normal, X)], decode=identity, exact=false) =
+    Case(op, cat, inputs, build, ref, decode, exact)
+
+# The ANE writes the results of index ops (reduce_argmax/argmin with uint16 output) as fp16
+# bit patterns labelled uint16, so a cast to fp16 gives the bits as an integer. Undo that.
+fp16_bits(y) = Float32(reinterpret(Float16, UInt16(y)))
+argref(f, A, axis) = Float32.(map(i -> i[axis + 1] - 1, f(A; dims=axis + 1)))
 
 # --- references -----------------------------------------------------------------
 sigmoid(x) = 1 / (1 + exp(-x))
@@ -83,6 +95,9 @@ add!(Case("rsqrt", "elementwise unary", (g, x) -> M.rsqrt(x; epsilon=1f-4), A ->
 add!(Case("rsqrt (no epsilon)", "elementwise unary", (g, x) -> M.rsqrt(x), A -> 1 ./ sqrt.(A); inputs=[(:pos, X)]))
 add!(Case("threshold", "elementwise unary", (g, x) -> M.threshold(x; alpha=0.2f0), A -> max.(A, 0.2f0)))
 add!(Case("clip", "elementwise unary", (g, x) -> M.clip(x; alpha=-0.5f0, beta=0.5f0), A -> clamp.(A, -0.5f0, 0.5f0)))
+add!(Case("cast (fp16→int32→fp16)", "elementwise unary", (g, x) -> M.cast(M.cast(x, Int32), Float16), A -> round.(A); inputs=[(:int, X)]))
+add!(Case("cast (fp16→int16→fp16)", "elementwise unary", (g, x) -> M.cast(M.cast(x, Int16), Float16), A -> round.(A); inputs=[(:int, X)]))
+add!(Case("cast (fp16→uint16→fp16)", "elementwise unary", (g, x) -> M.cast(M.cast(x, UInt16), Float16), A -> abs.(round.(A)); inputs=[(:uint, X)]))
 add!(Case("cast (fp16→fp32→fp16)", "elementwise unary", (g, x) -> M.cast(M.cast(x, Float32), Float16), A -> A))
 add!(Case("logical_not", "elementwise unary", (g, x) -> M.cast(M.logical_not(M.greater(x, 0f0)), Float16), A -> Float32.(A .<= 0)))
 
@@ -140,8 +155,18 @@ end
 cases[end].op == "reduce_prod axes=[1]" && (cases[end] = Case(cases[end].op, cases[end].category, cases[end].inputs,
     (g, x) -> M.reduce_prod(M.real_div(x, 1.2f0); axes=[1], keep_dims=true), A -> prod(A ./ 1.2f0; dims=2)))
 for (op, f) in [("reduce_argmax", argmax), ("reduce_argmin", argmin)]
-    add!(Case(op, "reduction", (g, x) -> M.cast(getfield(M, Symbol(op))(x; axis=1, keep_dims=true), Float16),
-              A -> Float32.(map(i -> i[2] - 1, f(A; dims=2)))))
+    add!(Case("$op (int32)", "reduction", (g, x) -> M.cast(getfield(M, Symbol(op))(x; axis=1, keep_dims=true), Float16),
+              A -> argref(f, A, 1); exact=true))
+    for axis in 0:3
+        add!(Case("$op (uint16) axis=$axis", "reduction",
+                  (g, x) -> M.cast(getfield(M, Symbol(op))(x; axis, keep_dims=true, output_dtype=UInt16), Float16),
+                  A -> argref(f, A, axis); decode=fp16_bits, exact=true, inputs=[(:normal, (2, 16, 8, 32))]))
+    end
+end
+for C in (129, 256, 1024)
+    add!(Case("reduce_argmax (uint16) axis=1, C=$C", "reduction",
+              (g, x) -> M.cast(M.reduce_argmax(x; axis=1, keep_dims=true, output_dtype=UInt16), Float16),
+              A -> argref(argmax, A, 1); decode=fp16_bits, exact=true, inputs=[(:perm, (1, C, 1, 64))]))
 end
 
 add!(Case("conv 1x1", "convolution", (g, x) -> M.conv(x, M.constant(g, W1x1)), A -> conv_ref(A, W1x1)))
@@ -224,8 +249,15 @@ add!(Case("sliding_windows", "tensor transformation", (g, x) -> M.sliding_window
 add!(Case("band_part", "tensor operation", (g, x) -> M.band_part(x; lower=0, upper=-1),
           A -> [j >= i ? A[n, c, i, j] : 0f0 for n in 1:1, c in 1:16, i in 1:8, j in 1:32]))
 add!(Case("cumsum", "tensor operation", (g, x) -> M.cumsum(x; axis=3), A -> cumsum(A; dims=4)))
-add!(Case("topk", "tensor operation", (g, x) -> (v = M.topk(x; k=4, axis=3); (v[1], M.cast(v[2], Float16))),
-          A -> (sort(A; dims=4, rev=true)[:, :, :, 1:4], Float32.(mapslices(a -> sortperm(a; rev=true)[1:4] .- 1, A; dims=4)))))
+topk_ref(A) = (sort(A; dims=4, rev=true)[:, :, :, 1:4], Float32.(mapslices(a -> sortperm(a; rev=true)[1:4] .- 1, A; dims=4)))
+add!(Case("topk (int32)", "tensor operation", (g, x) -> (v = M.topk(x; k=4, axis=3); (v[1], M.cast(v[2], Float16))), topk_ref))
+for axis in 1:3
+    add!(Case("topk (uint16) axis=$axis", "tensor operation",
+              (g, x) -> (v = M.topk(x; k=4, axis, indices_dtype=UInt16); (v[1], M.cast(v[2], Float16))),
+              axis == 3 ? topk_ref : nothing; decode=fp16_bits))
+end
+add!(Case("topk (values only)", "tensor operation", (g, x) -> M.topk(x; k=4, axis=3, return_indices=false),
+          A -> sort(A; dims=4, rev=true)[:, :, :, 1:4]))
 add!(Case("argsort", "tensor operation", (g, x) -> M.cast(M.argsort(x; axis=3), Float16),
           A -> Float32.(mapslices(a -> sortperm(a; rev=true) .- 1, A; dims=4))))
 idx = Int32.(rand(0:15, 6))
@@ -306,8 +338,16 @@ function run_case(c::Case)
         isnothing(c.ref) && return ("✓ runs", "no reference", NaN)
         refs = c.ref(arrays...)
         refs = refs isa Tuple ? collect(refs) : [refs]
+        if c.exact
+            wrong = sum(zip(results, refs, outs)) do (res, ref, o)
+                got = c.decode.(from_buffer(res, o.shape))
+                size(got) == size(ref) ? count(got .!= ref) : length(ref)
+            end
+            total = sum(length, refs)
+            return wrong == 0 ? ("✓", "", 0.0) : ("✗ wrong", "$wrong of $total indices wrong", NaN)
+        end
         err = maximum(zip(results, refs, outs)) do (res, ref, o)
-            got = from_buffer(res, o.shape)
+            got = c.decode.(from_buffer(res, o.shape))
             size(got) == size(ref) || return Inf32
             maximum(abs.(got .- ref)) / max(maximum(abs, ref), 1f-3)
         end
@@ -354,6 +394,18 @@ function main(path)
 
     Observed constraints, independent of the op:
     - Computation must be fp16: the same ops on fp32 tensors do not compile (cast inputs).
+    - No int32 tensor may appear anywhere in a program: even a `cast` to int32 fails MIL
+      validation. int16, uint16 and int8 work. Ops whose results are int32 by default take a
+      uint16 option: `output_dtype=UInt16` for `reduce_argmax`/`reduce_argmin`,
+      `indices_dtype=UInt16` for `topk`.
+    - `reduce_argmax`/`reduce_argmin` with uint16 output return fp16 bit patterns labelled
+      uint16: after `cast(i, Float16)`, decode on the host with
+      `reinterpret(Float16, UInt16(y))`. The decoded indices are exact up to index 128 and
+      rounded beyond it (consistent with 7 significant bits); more than 2048 elements along
+      the axis does not compile.
+    - `topk` with uint16 indices passes MIL validation but the compiler backend rejects it
+      (CompilationFailure) for every shape, axis, `k` and opset tried, even with
+      `return_indices=false`.
     - A trailing `identity` op cannot be a program output.
     - Tensor buffers need a 64-byte aligned row stride, which this package provides, so any
       innermost size works.

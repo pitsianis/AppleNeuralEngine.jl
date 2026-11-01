@@ -127,10 +127,29 @@ for op in (:reduce_sum, :reduce_mean, :reduce_max, :reduce_min, :reduce_prod,
     end
 end
 
+# Index-valued ops take the index element type as `Int32` (the MIL default, which the
+# ANE rejects) or `UInt16` (iOS17+); the MIL argument is only written for `UInt16`.
+function _index_dtype(T)
+    T in (Int32, UInt16) || throw(ArgumentError("index dtype must be Int32 or UInt16, got $T"))
+    return T === Int32 ? nothing : T
+end
+
+"""
+    reduce_argmax(x; axis=-1, keep_dims=false, output_dtype=Int32)
+    reduce_argmin(x; axis=-1, keep_dims=false, output_dtype=Int32)
+
+Index of the largest (smallest) element along `axis`. The ANE rejects int32 tensors, so
+pass `output_dtype=UInt16` to run on it. The ANE then produces fp16 bit patterns
+labelled uint16: decode a result `y = cast(i, Float16)` on the host with
+`reinterpret(Float16, UInt16(y))`. See the op support page for the axes and sizes that work.
+"""
+function reduce_argmax end
+@doc (@doc reduce_argmax) function reduce_argmin end
+
 for op in (:reduce_argmax, :reduce_argmin)
-    @eval function $op(x::Var; axis=-1, keep_dims=false, name=$(string(op)))
-        op!(x.graph, $(string(op)), (:x => x, :axis => axis, :keep_dims => keep_dims),
-            ((Int32, _reduced(x.shape, (axis,), keep_dims)),); name)
+    @eval function $op(x::Var; axis=-1, keep_dims=false, output_dtype::DataType=Int32, name=$(string(op)))
+        op!(x.graph, $(string(op)), (:x => x, :axis => axis, :keep_dims => keep_dims, :output_dtype => _index_dtype(output_dtype)),
+            ((output_dtype, _reduced(x.shape, (axis,), keep_dims)),); name)
     end
 end
 
@@ -434,13 +453,22 @@ cumsum(x::Var; axis=0, exclusive=false, reverse=false, name="cumsum") =
     op!(x.graph, "cumsum", (:x => x, :axis => axis, :exclusive => exclusive, :reverse => reverse), ((x.eltype, x.shape),); name)
 
 """
-    topk(x; k=1, axis=-1, ascending=false) -> (values, indices)
+    topk(x; k=1, axis=-1, ascending=false, sort=true, return_indices=true, indices_dtype=Int32)
+        -> (values, indices), or values alone when `return_indices=false`
+
+`indices_dtype` is `Int32` or `UInt16` (MIL `output_indices_dtype`, iOS17+; MIL validation
+then requires `sort` and `return_indices`, which are always written). The ANE compiler
+does not support `topk`: int32 indices fail MIL validation, and with uint16 indices or
+`return_indices=false` the compiler backend rejects it.
 """
-function topk(x::Var; k=1, axis=-1, ascending=false, name="topk")
+function topk(x::Var; k=1, axis=-1, ascending=false, sort=true, return_indices=true,
+              indices_dtype::DataType=Int32, name="topk")
     s = copy(x.shape)
     s[_axis(axis, ndims(x))+1] = k
-    op!(x.graph, "topk", (:x => x, :k => Int32(k), :axis => axis, :ascending => ascending),
-        ((x.eltype, s), (Int32, s)); name)
+    outs = return_indices ? ((x.eltype, s), (indices_dtype, s)) : ((x.eltype, s),)
+    op!(x.graph, "topk", (:x => x, :k => Int32(k), :axis => axis, :ascending => ascending, :sort => sort,
+                          :return_indices => return_indices, :output_indices_dtype => _index_dtype(indices_dtype)),
+        outs; name)
 end
 
 argsort(x::Var; axis=-1, ascending=false, name="argsort") =

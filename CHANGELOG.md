@@ -8,6 +8,15 @@ manager: before 1.0, a minor bump (0.1 → 0.2) may break things, a patch bump
 
 ## [Unreleased]
 
+### Added
+- `output_dtype` keyword (`Int32` or `UInt16`) for `MIL.reduce_argmax` and
+  `MIL.reduce_argmin`, and `indices_dtype`, `sort` and `return_indices` keywords for
+  `MIL.topk`. The ANE rejects int32 tensors; with uint16 output, argmax and argmin
+  run along channels and height (the result is fp16 bits labelled uint16, decoded with
+  `reinterpret(Float16, UInt16(y))`, exact up to index 128). `topk` still does not compile.
+- Probe cases for int32/int16/uint16 casts, uint16 argmax/argmin by axis and size, and
+  uint16 `topk`; the op support page records the int32 rule and the decoding.
+
 ### Fixed
 - `compile(f, x, y)` / `trace` with more than one Float32 input failed with
   "declare all inputs before adding ops".

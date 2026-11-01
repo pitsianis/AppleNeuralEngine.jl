@@ -82,11 +82,13 @@ precision rather than like for like.
 
 `tools/probe_ops.jl` compiles and checks every MIL op on the current machine; the
 result is in [docs/src/op_support.md](docs/src/op_support.md). On an M2 Max,
-129 of 167 probed cases work: elementwise arithmetic, activations, reductions,
+136 of 185 probed cases work: elementwise arithmetic, activations, reductions,
 convolutions (including depthwise, strided and int8-weight), pooling,
 matmul/linear/einsum, normalizations, scaled dot-product attention and the usual
 reshaping ops. `sin`/`cos`/`tan`, `pad`, gather/scatter, `cumsum`, `topk`,
-recurrent layers and random ops are rejected by the ANE compiler.
+recurrent layers and random ops are rejected by the ANE compiler. No int32 tensor
+may appear in a program; `reduce_argmax`/`reduce_argmin` work with uint16 output
+along channels or height, with a decoding step described on the op support page.
 
 The hardware computes in fp16 only. Each call costs about 0.1–0.2 ms on top of the
 compute, so the ANE pays off for matrix-matrix work, not single small vectors. See

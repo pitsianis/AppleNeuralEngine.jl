@@ -27,6 +27,12 @@ const M = AppleNeuralEngine.MIL
     @test eltype(M.greater(c, 0f0)) == Bool
     v, i = M.topk(c; k=3, axis=1)
     @test size(v) == size(i) == (1, 3, 1, 32) && eltype(i) == Int32
+    @test eltype(M.topk(c; k=3, axis=1, indices_dtype=UInt16)[2]) == UInt16
+    @test M.topk(c; k=3, axis=1, return_indices=false) isa M.Var
+    @test_throws ArgumentError M.topk(c; indices_dtype=Int16)
+    am = M.reduce_argmax(c; axis=1, keep_dims=true, output_dtype=UInt16)
+    @test size(am) == (1, 1, 1, 32) && eltype(am) == UInt16
+    @test eltype(M.reduce_argmin(c; axis=1)) == Int32
     @test size(M.einsum("nchw,nwhu->nchu", M.reshape(c, [1, 4, 32, 32]), M.reshape(c, [1, 32, 32, 4]))) == (1, 4, 32, 4)
 
     # printing
@@ -73,6 +79,16 @@ if ANE_AVAILABLE
     x0 = randn(Float16, 32, 64)
     y = p(x0)
     @test relerr(Float32.(y), Float32.(x0) * dropdims(W; dims=(3, 4))') < 2e-2
+    close!(p)
+
+    # argmax with uint16 indices: the ANE returns fp16 bit patterns labelled uint16
+    g = M.Graph()
+    x = M.input(g, :x, Float16, (1, 16, 1, 32))
+    M.output!(g, M.cast(M.reduce_argmax(x; axis=1, keep_dims=true, output_dtype=UInt16), Float16), :i)
+    p = compile(g)
+    x0 = randn(Float16, 32, 16)
+    i = Int.(reinterpret.(Float16, UInt16.(p(x0))))
+    @test vec(i) == [argmax(x0[w, :]) - 1 for w in 1:32]
     close!(p)
 end
 end
