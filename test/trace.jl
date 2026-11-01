@@ -13,6 +13,7 @@ if ANE_AVAILABLE
         ("adjoint, Gram", x -> x' * x, (randn(Float16, 32, 16),)),
         ("vector broadcast", x -> x .* v' .+ v', (randn(Float16, 8, 64),)),
         ("Float32 I/O", x -> tanh.(x), (randn(Float32, 16, 32),)),
+        ("two Float32 inputs", (a, b) -> a .- b, (randn(Float32, 16, 32), randn(Float32, 16, 32))),
     ]
     for (label, f, args) in cases
         @testset "$label" begin

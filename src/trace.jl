@@ -186,12 +186,13 @@ array or a tuple of arrays.
 """
 function trace(f, inputs...)
     g = MIL.Graph()
-    args = map(enumerate(inputs)) do (i, spec)
+    # Declare every input before casting any: MIL inputs must precede all ops.
+    vars = map(enumerate(inputs)) do (i, spec)
         T, dims = spec isa AbstractArray ? (eltype(spec), size(spec)) : (Float16, Tuple(spec))
         T in (Float16, Float32) || throw(ArgumentError("inputs must be Float16 or Float32 arrays, got $T"))
-        v = MIL.input(g, "x$i", T, _milshape(dims); julia_shape=dims)
-        Traced(T == Float16 ? v : MIL.cast(v, Float16), dims)
+        (MIL.input(g, "x$i", T, _milshape(dims); julia_shape=dims), dims)
     end
+    args = map(((v, dims),) -> Traced(v.eltype == Float16 ? v : MIL.cast(v, Float16), dims), vars)
     outtype = isempty(inputs) || !(first(inputs) isa AbstractArray) ? Float16 : eltype(first(inputs))
     previous = _TRACER[]
     _TRACER[] = _Tracer(g, IdDict{Any,MIL.Var}())

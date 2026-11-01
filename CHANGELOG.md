@@ -8,6 +8,10 @@ manager: before 1.0, a minor bump (0.1 → 0.2) may break things, a patch bump
 
 ## [Unreleased]
 
+### Fixed
+- `compile(f, x, y)` / `trace` with more than one Float32 input failed with
+  "declare all inputs before adding ops".
+
 ## [0.1.0] - 2026-10-29
 
 First release, not yet registered. Tested on an M2 Max with macOS 27.0.1:
