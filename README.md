@@ -121,6 +121,9 @@ classes it needs exist and raises an `ANEError` otherwise.
 
 ## Acknowledgements
 
+- George Hotz's [tinygrad ANE experiments](https://github.com/tinygrad/tinygrad/tree/d0e752003d/extra/accel/ane)
+  (2022) were the first public attempt to program the Neural Engine directly,
+  working down at the level of `hwx` programs, registers and the kernel driver.
 - [maderix/ANE](https://github.com/maderix/ANE) reverse-engineered the private
   `_ANEInMemoryModel` / `_ANERequest` / `_ANEIOSurfaceObject` workflow this
   package uses: compiling MIL in memory, the model directory layout, and
