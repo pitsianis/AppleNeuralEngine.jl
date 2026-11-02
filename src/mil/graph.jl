@@ -228,8 +228,12 @@ function source(g::Graph)
     println(io, "{")
     println(io, "    func main<$(g.opset)>($args) {")
     rename = isempty(g.renames) ? nothing :
-        # Variables are never followed by "(", op names always are.
-        Regex("\\b(" * join(keys(g.renames), "|") * ")\\b(?!\\()") => (m -> g.renames[m])
+        # Rename the variable where it is defined (after its type, "> name =") and where it is
+        # used, but not op names (always followed by "(") or argument names (followed by "="),
+        # which can coincide with a variable's name: `pad(x = …, pad = pad_pad)` from a `pad` op.
+        let names = join(keys(g.renames), "|")
+            Regex("(?<=> )(?:$names)\\b|\\b(?:$names)\\b(?!\\(|\\s*=)") => (m -> g.renames[m])
+        end
     for line in g.body
         println(io, "        ", isnothing(rename) ? line : replace(line, rename))
     end

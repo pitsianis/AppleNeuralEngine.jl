@@ -10,7 +10,7 @@ others before they reach the ANE. The ANE is a
 private, undocumented target, so this table can change with macOS releases. Re-run the
 probe on your machine.
 
-**146 of 195** probed cases compile and run.
+**148 of 195** probed cases compile and run.
 
 Not probed (they need control flow, dynamic shapes or state, which this package does not
 support yet): `cond`, `while_loop`, `make_list` and the `list_*` ops, `non_zero`,
@@ -243,8 +243,8 @@ Observed constraints, independent of the op:
 | `split` | ✓ | 0.0 |  |
 | `stack` | ✓ | 0.0 |  |
 | `tile` | ✓ | 0.0 |  |
-| `pad (constant)` | ✗ |  | compile fails (InvalidMILProgram) |
-| `pad (reflect)` | ✗ |  | compile fails (InvalidMILProgram) |
+| `pad (constant)` | ✓ | 1.9e-6 |  |
+| `pad (reflect)` | ✓ runs |  | no reference |
 | `flatten2d` | ✓ | 0.0 |  |
 | `band_part` | ✗ |  | compile fails (InvalidMILProgram) |
 | `cumsum` | ✗ |  | compile fails (InvalidMILProgram) |

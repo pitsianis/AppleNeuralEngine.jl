@@ -49,6 +49,10 @@ const M = AppleNeuralEngine.MIL
     @test occursin("out000_y = cast(", src)          # the producing variable is renamed
     @test !occursin(r"\bconst\b = ", src)            # no reserved words as names
     @test M.weight_blob(g) isa Vector{UInt8}
+    # renaming an output must not touch an argument with the same name (`pad = …` of a `pad` op)
+    gp = M.Graph(); xp = M.input(gp, :x, Float16, (1, 2, 4, 4))
+    M.output!(gp, M.pad(xp, [1, 1, 1, 1]), :y)
+    @test occursin(r"out000_y = pad\(x = in000_x, pad = pad_pad", M.source(gp))
 
     @test_throws ArgumentError M.output!(g, x)        # an input cannot be an output
     @test_throws ArgumentError M.output!(g, M.greater(c, 0f0))
@@ -73,6 +77,24 @@ if ANE_AVAILABLE
         @test r isa Array{Float16} && d isa Array{Float32} && size(r) == M.julia_shape(x)
         @test r ≈ max.(a .+ Float16.(b), 0) rtol = 1e-2 atol = 1e-2
         @test d ≈ 2 .* (Float32.(a) .+ b) rtol = 1e-2 atol = 1e-2
+        close!(p)
+    end
+
+    # pad (constant and reflect) on the ANE
+    for mode in ("constant", "reflect")
+        g = M.Graph()
+        x = M.input(g, :x, Float16, (1, 2, 4, 6))
+        M.output!(g, M.pad(x, [1, 1, 2, 2]; mode), :y)
+        p = compile(g)
+        x0 = randn(Float16, 6, 4, 2)                        # Julia (W, H, C)
+        y = p(x0)
+        ref = similar(x0, 10, 6, 2)
+        for c in 1:2, h in 1:6, w in 1:10
+            hh, ww = h - 1, w - 2
+            r(i, n) = i < 1 ? 2 - i : i > n ? 2n - i : i
+            ref[w, h, c] = mode == "constant" ? (1 <= hh <= 4 && 1 <= ww <= 6 ? x0[ww, hh, c] : 0) : x0[r(ww, 6), r(hh, 4), c]
+        end
+        @test y == ref
         close!(p)
     end
 
