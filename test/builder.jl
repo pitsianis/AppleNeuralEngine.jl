@@ -33,6 +33,12 @@ const M = AppleNeuralEngine.MIL
     am = M.reduce_argmax(c; axis=1, keep_dims=true, output_dtype=UInt16)
     @test size(am) == (1, 1, 1, 32) && eltype(am) == UInt16
     @test eltype(M.reduce_argmin(c; axis=1)) == Int32
+    gidx = M.constant(g, [0, 2]; eltype=UInt16)
+    @test size(M.gather(c, gidx; axis=1)) == (1, 2, 1, 32)
+    @test occursin("validate_indices", last(g.body))
+    g16 = M.Graph(; opset="ios16"); x16 = M.input(g16, :x, Float16, (4, 8))
+    M.gather(x16, M.constant(g16, [1]; eltype=UInt16))
+    @test !occursin("validate_indices", last(g16.body))      # iOS17+ argument
     @test size(M.einsum("nchw,nwhu->nchu", M.reshape(c, [1, 4, 32, 32]), M.reshape(c, [1, 32, 32, 4]))) == (1, 4, 32, 4)
 
     # printing
@@ -89,6 +95,16 @@ if ANE_AVAILABLE
     x0 = randn(Float16, 32, 16)
     i = Int.(reinterpret.(Float16, UInt16.(p(x0))))
     @test vec(i) == [argmax(x0[w, :]) - 1 for w in 1:32]
+    close!(p)
+
+    # gather with indices computed on the ANE (an embedding lookup)
+    g = M.Graph()
+    ids = M.input(g, :ids, Float16, (16,))
+    E = randn(Float32, 300, 64)
+    M.output!(g, M.gather(M.constant(g, E), M.cast(ids, UInt16); axis=0), :e)
+    p = compile(g)
+    t = rand(0:299, 16)
+    @test p(Float16.(t)) == permutedims(Float16.(E[t .+ 1, :]))   # MIL [16, 64] is a Julia (64, 16)
     close!(p)
 end
 end

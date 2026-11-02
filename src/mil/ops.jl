@@ -474,29 +474,48 @@ end
 argsort(x::Var; axis=-1, ascending=false, name="argsort") =
     op!(x.graph, "argsort", (:x => x, :axis => axis, :ascending => ascending), ((Int32, x.shape),); name)
 
-function gather(x::Var, indices::Var; axis=0, batch_dims=0, name="gather")
+# iOS17 added an optional `validate_indices` to the gather and scatter ops. The ANE
+# compiler rejects these ops unless it is written out, so write it from iOS17 on.
+_validate(g::Graph, v) = Base.parse(Int, Base.match(r"\d+", g.opset).match) >= 17 ? v : nothing
+
+"""
+    gather(x, indices; axis=0, batch_dims=0, validate_indices=false)
+    gather_along_axis(x, indices; axis=0, validate_indices=false)
+    gather_nd(x, indices; batch_dims=0, validate_indices=false)
+
+Gather slices of `x` at `indices`. On the ANE, indices must be `Int16` or `UInt16`
+(int32 tensors are rejected); indices computed in the program must be `UInt16`, e.g.
+`cast(i, UInt16)` of an fp16 input. The gathered axis can have at most 2048 elements.
+"""
+function gather(x::Var, indices::Var; axis=0, batch_dims=0, validate_indices=false, name="gather")
     a = _axis(axis, ndims(x))
     s = [x.shape[1:a]; indices.shape[batch_dims+1:end]; x.shape[a+2:end]]
-    op!(x.graph, "gather", (:x => x, :indices => indices, :axis => axis, :batch_dims => Int32(batch_dims)),
+    op!(x.graph, "gather", (:x => x, :indices => indices, :axis => axis, :batch_dims => Int32(batch_dims),
+                            :validate_indices => _validate(x.graph, validate_indices)),
         ((x.eltype, s),); name)
 end
 
-gather_along_axis(x::Var, indices::Var; axis=0, name="gather_along_axis") =
-    op!(x.graph, "gather_along_axis", (:x => x, :indices => indices, :axis => axis), ((x.eltype, indices.shape),); name)
+@doc (@doc gather) gather_along_axis(x::Var, indices::Var; axis=0, validate_indices=false, name="gather_along_axis") =
+    op!(x.graph, "gather_along_axis", (:x => x, :indices => indices, :axis => axis,
+                                       :validate_indices => _validate(x.graph, validate_indices)),
+        ((x.eltype, indices.shape),); name)
 
-function gather_nd(x::Var, indices::Var; batch_dims=0, name="gather_nd")
+@doc (@doc gather) function gather_nd(x::Var, indices::Var; batch_dims=0, validate_indices=false, name="gather_nd")
     s = [indices.shape[1:end-1]; x.shape[batch_dims+indices.shape[end]+1:end]]
-    op!(x.graph, "gather_nd", (:x => x, :indices => indices, :batch_dims => Int32(batch_dims)), ((x.eltype, s),); name)
+    op!(x.graph, "gather_nd", (:x => x, :indices => indices, :batch_dims => Int32(batch_dims),
+                               :validate_indices => _validate(x.graph, validate_indices)), ((x.eltype, s),); name)
 end
 
 for op in (:scatter, :scatter_along_axis)
-    @eval $op(data::Var, indices::Var, updates::Var; axis=0, mode="update", name=$(string(op))) =
-        op!(data.graph, $(string(op)), (:data => data, :indices => indices, :updates => updates, :axis => axis, :mode => mode),
+    @eval $op(data::Var, indices::Var, updates::Var; axis=0, mode="update", validate_indices=false, name=$(string(op))) =
+        op!(data.graph, $(string(op)), (:data => data, :indices => indices, :updates => updates, :axis => axis, :mode => mode,
+                                         :validate_indices => _validate(data.graph, validate_indices)),
             ((data.eltype, data.shape),); name)
 end
 
-scatter_nd(data::Var, indices::Var, updates::Var; mode="update", name="scatter_nd") =
-    op!(data.graph, "scatter_nd", (:data => data, :indices => indices, :updates => updates, :mode => mode),
+scatter_nd(data::Var, indices::Var, updates::Var; mode="update", validate_indices=false, name="scatter_nd") =
+    op!(data.graph, "scatter_nd", (:data => data, :indices => indices, :updates => updates, :mode => mode,
+                                   :validate_indices => _validate(data.graph, validate_indices)),
         ((data.eltype, data.shape),); name)
 
 function one_hot(indices::Var, one_hot_vector_size::Integer; axis=-1, on_value=1f0, off_value=0f0, eltype=Float16, name="one_hot")

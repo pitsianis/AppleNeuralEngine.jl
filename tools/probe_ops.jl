@@ -23,6 +23,8 @@ data(kind, shape) = kind === :pos ? rand(Float32, shape...) .+ 0.5f0 :
                     kind === :int ? Float32.(rand(-100:100, shape...)) :
                     kind === :uint ? Float32.(rand(0:200, shape...)) :
                     # distinct values along dimension 2 (channels), so arg-reductions have no ties
+                    # integer indices 0..15, passed as fp16 and cast in the program
+                    kind === :idx ? Float32.(rand(0:15, shape...)) :
                     kind === :perm ? Float32.(mapslices(_ -> randperm(shape[2]) ./ shape[2] .* 1000, zeros(Float32, shape...); dims=2)) :
                     randn(Float32, shape...)
 
@@ -260,24 +262,42 @@ add!(Case("topk (values only)", "tensor operation", (g, x) -> M.topk(x; k=4, axi
           A -> sort(A; dims=4, rev=true)[:, :, :, 1:4]))
 add!(Case("argsort", "tensor operation", (g, x) -> M.cast(M.argsort(x; axis=3), Float16),
           A -> Float32.(mapslices(a -> sortperm(a; rev=true) .- 1, A; dims=4))))
-idx = Int32.(rand(0:15, 6))
-add!(Case("gather", "scatter/gather", (g, x) -> M.gather(x, M.constant(g, idx; eltype=Int32); axis=1), A -> A[:, idx .+ 1, :, :]))
-idx4 = Int32.(rand(0:31, 1, 16, 8, 4))
-add!(Case("gather_along_axis", "scatter/gather", (g, x) -> M.gather_along_axis(x, M.constant(g, idx4; eltype=Int32); axis=3),
+# On the ANE, indices must be Int16 or UInt16 tensors (int32 is rejected everywhere).
+idx = rand(0:15, 6)
+add!(Case("gather (int32 indices)", "scatter/gather", (g, x) -> M.gather(x, M.constant(g, idx; eltype=Int32); axis=1), A -> A[:, idx .+ 1, :, :]))
+for T in (Int16, UInt16)
+    add!(Case("gather ($(lowercase(string(T))) indices)", "scatter/gather", (g, x) -> M.gather(x, M.constant(g, idx; eltype=T); axis=1), A -> A[:, idx .+ 1, :, :]))
+end
+for ax in (0, 2, 3)
+    ii = rand(0:(ax == 0 ? 1 : ax == 2 ? 7 : 31), 4)
+    add!(Case("gather axis=$ax", "scatter/gather", (g, x) -> M.gather(x, M.constant(g, ii; eltype=UInt16); axis=ax),
+              A -> collect(selectdim(A, ax + 1, ii .+ 1)); inputs=[(:normal, (2, 16, 8, 32))]))
+end
+for T in (Int16, UInt16)
+    add!(Case("gather, runtime indices (cast fp16→$(lowercase(string(T))))", "scatter/gather", (g, x, i) -> M.gather(x, M.cast(i, T); axis=1),
+              (A, I) -> A[:, Int.(I) .+ 1, :, :]; inputs=[(:normal, X), (:idx, (6,))]))
+end
+for V in (2048, 2049)
+    add!(Case("gather, runtime table, V=$V rows", "scatter/gather", (g, e, i) -> M.gather(e, M.cast(i, UInt16); axis=0),
+              (E, I) -> E[Int.(I) .+ 1, :]; inputs=[(:normal, (V, 64)), (:idx, (32,))]))
+end
+idx4 = rand(0:31, 1, 16, 8, 4)
+add!(Case("gather_along_axis", "scatter/gather", (g, x) -> M.gather_along_axis(x, M.constant(g, idx4; eltype=UInt16); axis=3),
           A -> [A[n, c, h, idx4[n, c, h, k] + 1] for n in 1:1, c in 1:16, h in 1:8, k in 1:4]))
-idxnd = Int32.([0 3; 0 7; 0 1])
-add!(Case("gather_nd", "scatter/gather", (g, x) -> M.gather_nd(x, M.constant(g, idxnd; eltype=Int32)),
+idxnd = [0 3; 0 7; 0 1]
+add!(Case("gather_nd", "scatter/gather", (g, x) -> M.gather_nd(x, M.constant(g, idxnd; eltype=UInt16)),
           A -> permutedims(cat([A[1, idxnd[i, 2] + 1, :, :] for i in 1:3]...; dims=3), (3, 1, 2))))
-add!(Case("scatter", "scatter/gather", (g, x, u) -> M.scatter(x, M.constant(g, Int32[1, 5]; eltype=Int32), u; axis=1),
+add!(Case("scatter", "scatter/gather", (g, x, u) -> M.scatter(x, M.constant(g, [1, 5]; eltype=UInt16), u; axis=1),
           (A, U) -> (B = copy(A); B[:, [2, 6], :, :] = U; B); inputs=[(:normal, X), (:normal, (1, 2, 8, 32))]))
-add!(Case("scatter_along_axis", "scatter/gather", (g, x, u) -> M.scatter_along_axis(x, M.constant(g, zeros(Int32, 1, 1, 8, 32); eltype=Int32), u; axis=1),
+add!(Case("scatter_along_axis", "scatter/gather", (g, x, u) -> M.scatter_along_axis(x, M.constant(g, zeros(Int, 1, 1, 8, 32); eltype=UInt16), u; axis=1),
           (A, U) -> (B = copy(A); B[:, 1:1, :, :] = U; B); inputs=[(:normal, X), (:normal, (1, 1, 8, 32))]))
-add!(Case("scatter_nd", "scatter/gather", (g, x, u) -> M.scatter_nd(x, M.constant(g, Int32[0 3]; eltype=Int32), u),
+add!(Case("scatter_nd", "scatter/gather", (g, x, u) -> M.scatter_nd(x, M.constant(g, [0 3]; eltype=UInt16), u),
           (A, U) -> (B = copy(A); B[1, 4, :, :] = U[1, :, :]; B); inputs=[(:normal, X), (:normal, (1, 8, 32))]))
-add!(Case("one_hot", "tensor operation", (g, x) -> M.one_hot(M.constant(g, Int32.(collect(0:15)); eltype=Int32), 32; axis=-1) |> v -> M.add(M.reshape(v, [1, 1, 16, 32]), M.mul(x, 0f0)),
+add!(Case("one_hot", "tensor operation", (g, x) -> M.one_hot(M.constant(g, collect(0:15); eltype=UInt16), 32; axis=-1) |> v -> M.add(M.reshape(v, [1, 1, 16, 32]), M.mul(x, 0f0)),
           A -> reshape(Float32.([j == i for i in 0:15, j in 0:31]), 1, 1, 16, 32) .+ 0 .* A; inputs=[(:normal, (1, 1, 16, 32))]))
 add!(Case("fill", "tensor operation", (g, x) -> M.add(x, M.fill(g, [1, 16, 8, 32], 2f0)), A -> A .+ 2))
-add!(Case("range_1d", "tensor operation", (g, x) -> M.add(x, M.cast(M.range_1d(g, Int32(0), Int32(32), Int32(1)), Float16)), A -> A .+ reshape(0:31, 1, 1, 1, 32)))
+add!(Case("range_1d (int32)", "tensor operation", (g, x) -> M.add(x, M.cast(M.range_1d(g, Int32(0), Int32(32), Int32(1)), Float16)), A -> A .+ reshape(0:31, 1, 1, 1, 32)))
+add!(Case("range_1d (fp16)", "tensor operation", (g, x) -> M.add(x, M.range_1d(g, Float16(0), Float16(32), Float16(1))), A -> A .+ reshape(0:31, 1, 1, 1, 32)))
 add!(Case("shape", "tensor operation", (g, x) -> M.add(M.mul(x, 0f0), M.cast(M.reduce_sum(M.shape(x); axes=[0], keep_dims=true), Float16)), A -> 0 .* A .+ 57))
 add!(Case("identity", "tensor operation", (g, x) -> M.relu(M.identity(x)), A -> max.(A, 0)))
 
@@ -403,6 +423,12 @@ function main(path)
       `reinterpret(Float16, UInt16(y))`. The decoded indices are exact up to index 128 and
       rounded beyond it (consistent with 7 significant bits); more than 2048 elements along
       the axis does not compile.
+    - Gather ops (`gather`, `gather_along_axis`, `gather_nd`) work with int16 or uint16
+      indices, constant or computed (a computed index must be uint16, e.g. a cast of an
+      fp16 input), when `validate_indices` is written out (the wrappers do), and at most
+      2048 elements along the gathered axis. The scatter ops and `one_hot` still fail.
+      The 2048 limits here and for argmax match the largest range in which fp16 holds
+      every integer, so the ANE presumably carries indices as fp16.
     - `topk` with uint16 indices passes MIL validation but the compiler backend rejects it
       (CompilationFailure) for every shape, axis, `k` and opset tried, even with
       `return_indices=false`.

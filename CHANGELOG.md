@@ -8,6 +8,14 @@ manager: before 1.0, a minor bump (0.1 → 0.2) may break things, a patch bump
 
 ## [Unreleased]
 
+### Changed
+- The gather and scatter wrappers write `validate_indices` (default `false`) for
+  opsets from iOS17 on; the ANE compiler rejects these ops without it. With int16 or
+  uint16 indices, `gather`, `gather_along_axis` and `gather_nd` now compile and run,
+  for constant indices and for uint16 indices computed in the program (e.g. cast from
+  an fp16 input), with at most 2048 elements along the gathered axis. The scatter ops
+  and `one_hot` still fail. `range_1d` works with fp16 operands.
+
 ### Added
 - `output_dtype` keyword (`Int32` or `UInt16`) for `MIL.reduce_argmax` and
   `MIL.reduce_argmin`, and `indices_dtype`, `sort` and `return_indices` keywords for
