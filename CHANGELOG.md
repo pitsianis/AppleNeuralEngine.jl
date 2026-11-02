@@ -8,6 +8,11 @@ manager: before 1.0, a minor bump (0.1 → 0.2) may break things, a patch bump
 
 ## [Unreleased]
 
+### Fixed
+- Tracing is safe from several threads or tasks at once: the tracer state was one
+  global, so concurrent `compile(f, x)` / `trace` calls could mix up their graphs
+  ("Var … belongs to a different Graph"). It is now task-local.
+
 ### Changed
 - The gather and scatter wrappers write `validate_indices` (default `false`) for
   opsets from iOS17 on; the ANE compiler rejects these ops without it. With int16 or

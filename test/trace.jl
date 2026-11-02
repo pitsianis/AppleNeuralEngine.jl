@@ -1,3 +1,18 @@
+@testset "concurrent traces" begin
+    # Each traced function yields mid-trace, so the two tasks interleave even on one thread.
+    W1, W2 = randn(Float32, 32, 48), randn(Float32, 32, 16)
+    f1(x) = (yield(); y = x * W1; yield(); max.(y, 0))
+    f2(x) = (yield(); y = x * W2; yield(); y .+ 1)
+    t1 = Threads.@spawn trace(f1, (8, 32))
+    t2 = Threads.@spawn trace(f2, (8, 32))
+    g1, g2 = fetch(t1), fetch(t2)
+    @test only(g1.outputs).shape == [1, 48, 1, 8]
+    @test only(g2.outputs).shape == [1, 16, 1, 8]
+    s1, s2 = AppleNeuralEngine.MIL.source(g1), AppleNeuralEngine.MIL.source(g2)
+    @test occursin("[48, 32, 1, 1]", s1) && !occursin("[16, 32, 1, 1]", s1)   # each graph holds only its own weight
+    @test occursin("[16, 32, 1, 1]", s2) && !occursin("[48, 32, 1, 1]", s2)
+end
+
 if ANE_AVAILABLE
 @testset "tracing" begin
     W = randn(Float32, 64, 96) ./ 8

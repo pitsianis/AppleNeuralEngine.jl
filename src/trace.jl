@@ -47,10 +47,13 @@ mutable struct _Tracer
     constants::IdDict{Any,MIL.Var}
 end
 
-const _TRACER = Ref{Union{Nothing,_Tracer}}(nothing)
+# The tracer lives in task-local storage, so traces running concurrently on different tasks
+# or threads (e.g. `compile` called from several threads) cannot see each other's graphs.
+_current_tracer() = get(task_local_storage(), :AppleNeuralEngine_tracer, nothing)::Union{Nothing,_Tracer}
+_set_tracer!(t) = task_local_storage(:AppleNeuralEngine_tracer, t)
 
 function _tracer()
-    t = _TRACER[]
+    t = _current_tracer()
     isnothing(t) && error("traced arrays can only be used while tracing")
     return t
 end
@@ -194,8 +197,8 @@ function trace(f, inputs...)
     end
     args = map(((v, dims),) -> Traced(v.eltype == Float16 ? v : MIL.cast(v, Float16), dims), vars)
     outtype = isempty(inputs) || !(first(inputs) isa AbstractArray) ? Float16 : eltype(first(inputs))
-    previous = _TRACER[]
-    _TRACER[] = _Tracer(g, IdDict{Any,MIL.Var}())
+    previous = _current_tracer()
+    _set_tracer!(_Tracer(g, IdDict{Any,MIL.Var}()))
     try
         result = f(args...)
         for (i, r) in enumerate(result isa Tuple ? result : (result,))
@@ -205,7 +208,7 @@ function trace(f, inputs...)
             MIL.output!(g, outtype == Float16 ? v : MIL.cast(v, outtype), "y$i"; julia_shape=r.size)
         end
     finally
-        _TRACER[] = previous
+        _set_tracer!(previous)
     end
     return g
 end
