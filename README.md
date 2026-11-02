@@ -82,10 +82,10 @@ precision rather than like for like.
 
 `tools/probe_ops.jl` compiles and checks every MIL op on the current machine; the
 result is in [docs/src/op_support.md](docs/src/op_support.md). On an M2 Max,
-146 of 195 probed cases work: elementwise arithmetic, activations, reductions,
-convolutions (including depthwise, strided and int8-weight), pooling,
+148 of 195 probed cases work: elementwise arithmetic, activations, reductions,
+convolutions (including depthwise, strided and int8-weight), pooling, padding,
 matmul/linear/einsum, normalizations, scaled dot-product attention and the usual
-reshaping ops. `sin`/`cos`/`tan`, `pad`, scatter, `cumsum`, `topk`,
+reshaping ops. `sin`/`cos`/`tan`, scatter, `cumsum`, `topk`,
 recurrent layers and random ops are rejected by the ANE compiler. No int32 tensor
 may appear in a program: gather works with int16/uint16 indices (up to 2048 rows),
 and `reduce_argmax`/`reduce_argmin` work with uint16 output along channels or
