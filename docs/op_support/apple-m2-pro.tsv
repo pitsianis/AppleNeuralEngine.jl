@@ -1,0 +1,200 @@
+# chip: Apple M2 Pro
+# macos: 14.8.9
+# date: 2026-11-20
+# by: jd-foster
+category	op	status	err	note
+elementwise unary	abs	✓	0.0	
+elementwise unary	acos	✗		compile fails (InvalidMILProgram)
+elementwise unary	asin	✗		compile fails (InvalidMILProgram)
+elementwise unary	atan	≈	0.025	approximate
+elementwise unary	atanh	✗		compile fails (InvalidMILProgram)
+elementwise unary	ceil	✓	0.0	
+elementwise unary	cos	✗		compile fails (CompilationFailure)
+elementwise unary	cosh	✗		compile fails (InvalidMILProgram)
+elementwise unary	erf	✓	0.00084	
+elementwise unary	exp	✓	0.00076	
+elementwise unary	exp2	✓	0.00036	
+elementwise unary	floor	✓	0.0	
+elementwise unary	round	✓	0.0	
+elementwise unary	sign	✓	0.0	
+elementwise unary	sin	✗		compile fails (CompilationFailure)
+elementwise unary	sinh	✗		compile fails (InvalidMILProgram)
+elementwise unary	sqrt	✓	0.00077	
+elementwise unary	square	✓	0.00029	
+elementwise unary	tan	✗		compile fails (InvalidMILProgram)
+elementwise unary	tanh	✓	0.0016	
+activation	relu	✓	0.0	
+activation	relu6	✓	0.0	
+activation	sigmoid	✓	0.0034	
+activation	silu	✓	0.0043	
+activation	softplus	✓	0.00076	
+activation	softsign	✓	0.00092	
+activation	gelu	✓	0.0016	
+activation	gelu (tanh approx.)	✓	0.0018	
+elementwise unary	inverse	✓	0.00058	
+elementwise unary	log	✓	0.001	
+elementwise unary	rsqrt	✓	0.0014	
+elementwise unary	rsqrt (no epsilon)	✗		compile fails (InvalidMILProgram)
+elementwise unary	threshold	✓	1.4e-5	
+elementwise unary	clip	✓	0.0	
+elementwise unary	cast (fp16→int32→fp16)	✗		compile fails (InvalidMILProgram)
+elementwise unary	cast (fp16→int16→fp16)	✓	0.0	
+elementwise unary	cast (fp16→uint16→fp16)	✓	0.0	
+elementwise unary	cast (fp16→fp32→fp16)	✗		compile fails (CompilationFailure)
+elementwise unary	logical_not	✓	0.0	
+activation	elu	✓	0.00095	
+activation	leaky_relu	✓	4.1e-5	
+activation	thresholded_relu	✓	0.0	
+activation	clamped_relu	✓	0.00015	
+activation	linear_activation	✓	0.00048	
+activation	scaled_tanh	✓	0.0017	
+activation	sigmoid_hard	✓	0.00029	
+activation	prelu	✓	0.00012	
+activation	softplus_parametric	✓	0.001	
+activation	softmax	✓	0.00057	
+elementwise binary	add	✓	0.00031	
+elementwise binary	sub	✓	0.00033	
+elementwise binary	mul	✓	0.00026	
+elementwise binary	real_div	✓	0.00068	
+elementwise binary	pow	✓	0.00075	
+elementwise binary	maximum	✓	0.0	
+elementwise binary	minimum	✓	0.0	
+elementwise binary	floor_div	✓	0.0	
+elementwise binary	mod	✗		compile fails (InvalidMILProgram)
+elementwise binary	add (broadcast [1,C,1,1])	✓	0.00031	
+elementwise binary	mul (scalar literal)	✓	0.00039	
+elementwise binary	equal	✓	0.0	
+elementwise binary	not_equal	✓	0.0	
+elementwise binary	greater	✓	0.0	
+elementwise binary	greater_equal	✓	0.0	
+elementwise binary	less	✓	0.0	
+elementwise binary	less_equal	✓	0.0	
+elementwise binary	logical_and	✗		compile fails (InvalidMILProgram)
+elementwise binary	logical_or	✗		compile fails (InvalidMILProgram)
+elementwise binary	logical_xor	✗		compile fails (InvalidMILProgram)
+elementwise binary	select	✗		compile fails (InvalidMILProgram)
+reduction	reduce_sum axes=[1]	✓	0.00087	
+reduction	reduce_sum axes=[3]	✓	0.00067	
+reduction	reduce_sum axes=[2, 3]	✓	0.00056	
+reduction	reduce_mean axes=[1]	✓	0.00067	
+reduction	reduce_mean axes=[3]	✓	0.00091	
+reduction	reduce_mean axes=[2, 3]	✓	0.00076	
+reduction	reduce_max axes=[1]	✓	0.0	
+reduction	reduce_max axes=[3]	✓	0.0	
+reduction	reduce_max axes=[2, 3]	✓	0.0	
+reduction	reduce_min axes=[1]	✓	0.0	
+reduction	reduce_min axes=[3]	✓	0.0	
+reduction	reduce_min axes=[2, 3]	✓	0.0	
+reduction	reduce_prod axes=[1]	✗		compile fails (InvalidMILProgram)
+reduction	reduce_l1_norm axes=[1]	✓	0.0012	
+reduction	reduce_l1_norm axes=[3]	✓	0.00069	
+reduction	reduce_l1_norm axes=[2, 3]	✓	0.0008	
+reduction	reduce_l2_norm axes=[1]	✓	0.00067	
+reduction	reduce_l2_norm axes=[3]	✓	0.00058	
+reduction	reduce_l2_norm axes=[2, 3]	✓	0.00083	
+reduction	reduce_sum_square axes=[1]	✓	0.00083	
+reduction	reduce_sum_square axes=[3]	✓	0.00077	
+reduction	reduce_sum_square axes=[2, 3]	✓	0.00071	
+reduction	reduce_log_sum axes=[1]	✓	0.0012	
+reduction	reduce_log_sum axes=[3]	✓	0.001	
+reduction	reduce_log_sum axes=[2, 3]	✓	0.00099	
+reduction	reduce_log_sum_exp axes=[1]	✓	0.00084	
+reduction	reduce_log_sum_exp axes=[3]	✓	0.00077	
+reduction	reduce_log_sum_exp axes=[2, 3]	✓	0.00095	
+reduction	reduce_argmax (int32)	✗		compile fails (InvalidMILProgram)
+reduction	reduce_argmax (uint16) axis=0	✗		compile fails (CompilationFailure)
+reduction	reduce_argmax (uint16) axis=1	✗ wrong		479 of 512 indices wrong
+reduction	reduce_argmax (uint16) axis=2	✗ wrong		902 of 1024 indices wrong
+reduction	reduce_argmax (uint16) axis=3	✗		compile fails
+reduction	reduce_argmin (int32)	✗		compile fails (InvalidMILProgram)
+reduction	reduce_argmin (uint16) axis=0	✗		compile fails (CompilationFailure)
+reduction	reduce_argmin (uint16) axis=1	✗ wrong		486 of 512 indices wrong
+reduction	reduce_argmin (uint16) axis=2	✗ wrong		894 of 1024 indices wrong
+reduction	reduce_argmin (uint16) axis=3	✗		compile fails
+reduction	reduce_argmax (uint16) axis=1, C=129	✗ wrong		64 of 64 indices wrong
+reduction	reduce_argmax (uint16) axis=1, C=256	✗ wrong		63 of 64 indices wrong
+reduction	reduce_argmax (uint16) axis=1, C=1024	✗ wrong		64 of 64 indices wrong
+convolution	conv 1x1	✓	0.00036	
+convolution	conv 3x3 same	✓	0.00036	
+convolution	conv 3x3 stride 2	✓	0.00038	
+convolution	conv + bias	✓	0.00049	
+convolution	conv depthwise 3x3	✓	0.00043	
+convolution	conv int8 weights (constexpr_affine_dequantize)	✓	0.0045	
+convolution	conv_transpose 2x2 stride 2	✓ runs		no reference
+convolution	conv 1D	✓ runs		no reference
+pooling	max_pool	✓	0.0	
+pooling	avg_pool	✓	0.00054	
+pooling	l2_pool	✓	0.00062	
+linear algebra	matmul	✓	0.00025	
+linear algebra	matmul transpose_y	✓	0.00026	
+linear algebra	matmul (constant)	✓	0.00036	
+linear algebra	linear	✓	0.00033	
+linear algebra	einsum nchw,nwhu->nchu	✓	0.00038	
+normalization	layer_norm	✓	0.0012	
+normalization	layer_norm gamma/beta (last axis)	✓	0.00078	
+normalization	batch_norm	✓	0.00056	
+normalization	instance_norm	✓	0.00087	
+normalization	l2_norm	✓ runs		no reference
+normalization	local_response_norm	✓ runs		no reference
+tensor transformation	reshape	✓	0.0	
+tensor transformation	transpose	✓	0.0	
+tensor transformation	transpose (last two)	✓	0.0	
+tensor transformation	expand_dims + squeeze	✓	0.0	
+tensor transformation	reverse	✗		compile fails (InvalidMILProgram)
+tensor transformation	slice_by_index	✓	0.0	
+tensor transformation	slice_by_index (stride 2)	✓	0.0	
+tensor transformation	slice_by_size	✓	0.0	
+tensor operation	concat	✓	0.0	
+tensor operation	concat (last axis)	✓	0.0	
+tensor operation	split	✓	0.0	
+tensor operation	stack	✓	0.0	
+tensor operation	tile	✓	0.0	
+tensor operation	pad (constant)	✓	1.9e-6	
+tensor operation	pad (reflect)	✓ runs		no reference
+tensor operation	flatten2d	✓	0.0	
+tensor transformation	depth_to_space	✓ runs		no reference
+tensor transformation	space_to_depth	✓ runs		no reference
+tensor transformation	pixel_shuffle	✓ runs		no reference
+tensor transformation	pixel_unshuffle	✗		compile fails (InvalidMILProgram)
+tensor transformation	sliding_windows	✗		compile fails (InvalidMILProgram)
+tensor operation	band_part	✗		compile fails (InvalidMILProgram)
+tensor operation	cumsum	✗		compile fails (InvalidMILProgram)
+tensor operation	topk (int32)	✗		compile fails (InvalidMILProgram)
+tensor operation	topk (uint16) axis=1	✗		compile fails (CompilationFailure)
+tensor operation	topk (uint16) axis=2	✗		compile fails (CompilationFailure)
+tensor operation	topk (uint16) axis=3	✗		compile fails (CompilationFailure)
+tensor operation	topk (values only)	✗		compile fails (CompilationFailure)
+tensor operation	argsort	✗		compile fails (CompilationFailure)
+scatter/gather	gather (int32 indices)	✗		compile fails (InvalidMILProgram)
+scatter/gather	gather (int16 indices)	✗		compile fails (InvalidMILProgram)
+scatter/gather	gather (uint16 indices)	✗		compile fails (InvalidMILProgram)
+scatter/gather	gather axis=0	✗		compile fails (InvalidMILProgram)
+scatter/gather	gather axis=2	✗		compile fails (InvalidMILProgram)
+scatter/gather	gather axis=3	✗		compile fails (InvalidMILProgram)
+scatter/gather	gather, runtime indices (cast fp16→int16)	✗ wrong	1.0	
+scatter/gather	gather, runtime indices (cast fp16→uint16)	✗ wrong	0.7	
+scatter/gather	gather, runtime table, V=2048 rows	✗ wrong	1.0	
+scatter/gather	gather, runtime table, V=2049 rows	✗ wrong	1.0	
+scatter/gather	gather_along_axis	✗		compile fails (InvalidMILProgram)
+scatter/gather	gather_nd	✗		compile fails (InvalidMILProgram)
+scatter/gather	scatter	✗		compile fails (InvalidMILProgram)
+scatter/gather	scatter_along_axis	✗		compile fails (InvalidMILProgram)
+scatter/gather	scatter_nd	✗		compile fails (InvalidMILProgram)
+tensor operation	one_hot	✗		compile fails (InvalidMILProgram)
+tensor operation	fill	✓	0.00034	
+tensor operation	range_1d (int32)	✗		compile fails (InvalidMILProgram)
+tensor operation	range_1d (fp16)	✓	0.00047	
+tensor operation	shape	✗		compile fails (InvalidMILProgram)
+tensor operation	identity	✓	0.0	
+image resizing	upsample_nearest_neighbor	✓	1.5e-6	
+image resizing	upsample_bilinear	✓ runs		no reference
+image resizing	resize_nearest_neighbor	✓	2.3e-6	
+image resizing	resize_bilinear	✓ runs		no reference
+image resizing	crop	✓	0.00014	
+attention	scaled_dot_product_attention	✗		compile fails (InvalidMILProgram)
+recurrent	lstm	✗		compile fails (InvalidMILProgram)
+recurrent	gru	✗		compile fails (InvalidMILProgram)
+recurrent	rnn	✗		compile fails (InvalidMILProgram)
+quantization	quantize → dequantize	✓	0.013	
+random	random_normal	✗		compile fails (InvalidMILProgram)
+random	random_uniform	✗		compile fails (InvalidMILProgram)

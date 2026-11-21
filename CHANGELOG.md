@@ -16,6 +16,10 @@ manager: before 1.0, a minor bump (0.1 → 0.2) may break things, a patch bump
   First M4 results by Mathieu Bouchard (#4): `sin` and `cos` compile and run on the M4,
   unlike the M2 Max. First M1 Pro results: 139 of 195 cases run, and `gather`,
   `gather_along_axis` and `gather_nd` do not compile there although they do on the M2 Max.
+  First M2 Pro results by jd-foster (#8), on macOS 14.8.9: 130 of 195 cases run; the gather
+  family fails as on the M1 Pro, and so do `select`, `logical_and`, `reverse`, uint16
+  argmax/argmin and `scaled_dot_product_attention`, which work on the other processors
+  (all measured on macOS 27), so some of the differences may come from the OS.
 - Requires ObjectiveC.jl 7.2 (was 6.0.1). Version 7 replaced `@autoreleasepool` with
   per-call pools and managed wrappers; the bindings now use managed wrappers for
   temporary objects (released eagerly, so the ANE gets a closed model's resources
