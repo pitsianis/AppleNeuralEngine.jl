@@ -9,7 +9,8 @@ ANE compiler's MIL validation rejected the op; every argument encoding we tried 
 others before they reach the ANE. The ANE is a private, undocumented target, so results can
 change with macOS releases as well as with the processor.
 
-**Contributing a processor:** run `julia --project=. tools/probe_ops.jl` on it. The probe
+**Contributing a processor:** run `PROBE_BY="Your Name" julia --project=. tools/probe_ops.jl`
+on it (after `julia --project=. -e 'using Pkg; Pkg.instantiate()'` in a fresh clone). The probe
 writes `docs/op_support/<processor>.tsv` and regenerates this page; send both in a pull
 request. Processors not yet measured have no entry in the tables.
 

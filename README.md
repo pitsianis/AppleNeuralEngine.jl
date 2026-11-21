@@ -96,6 +96,17 @@ may appear in a program: gather works with int16/uint16 indices (up to 2048 rows
 and `reduce_argmax`/`reduce_argmin` work with uint16 output along channels or
 height, with a decoding step described on the op support page.
 
+**Contributing a processor.** Only 4 of the 19 M processors are measured so far
+(M1 Pro, M2 Pro, M2 Max, M4). If you have a different M-series Mac and a couple of
+minutes to spare, please run the probe and open a PR with the two files it writes:
+
+```sh
+git clone https://github.com/pitsianis/AppleNeuralEngine.jl
+cd AppleNeuralEngine.jl
+julia --project=. -e 'using Pkg; Pkg.instantiate()'
+PROBE_BY="Your Name" julia --project=. tools/probe_ops.jl
+```
+
 The hardware computes in fp16 only. Each call costs about 0.1–0.2 ms on top of the
 compute, so the ANE pays off for matrix-matrix work, not single small vectors. See
 [docs/src/hardware.md](docs/src/hardware.md).
